@@ -4,181 +4,179 @@
   let documents = loadDocuments();
   let activeView = "all";
   let toastTimer;
+  let latestExtractedText = "";
+
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
 
   function loadDocuments() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      return Array.isArray(saved) ? saved : [];
-    } catch { return []; }
+    try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); return Array.isArray(saved) ? saved : []; }
+    catch { return []; }
   }
   function saveDocuments() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(documents)); }
-    catch { showToast("Browser storage is full. Some changes may not be saved."); }
+    catch { showToast("Browser storage is full. New document details may not persist."); }
   }
   function showToast(message) {
-    const toast = $("toast");
-    toast.textContent = message;
-    toast.classList.add("show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+    const toast = $("toast"); toast.textContent = message; toast.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
   }
   function formatSize(bytes) {
     if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / 1048576).toFixed(1) + " MB";
   }
   function formatDate(value) {
-    return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+    return new Intl.DateTimeFormat(undefined, {month:"short",day:"numeric",year:"numeric"}).format(new Date(value));
   }
-  function categoryFor(fileName) {
-    const name = fileName.toLowerCase();
-    if (/invoice|bill|tax-invoice/.test(name)) return "invoices";
-    if (/receipt|payment|transaction/.test(name)) return "receipts";
+  function categoryFor(name) {
+    const n = name.toLowerCase();
+    if (/invoice|bill|tax-invoice/.test(n)) return "invoices";
+    if (/receipt|payment|transaction/.test(n)) return "receipts";
     return "other";
   }
-  function categoryLabel(category) {
-    return category === "invoices" ? "Invoice" : category === "receipts" ? "Receipt" : "Other";
-  }
+  function categoryLabel(c) { return c === "invoices" ? "Invoice" : c === "receipts" ? "Receipt" : "Other"; }
   function fileKind(name) {
     const ext = name.split(".").pop().toLowerCase();
-    if (ext === "pdf") return { label: "PDF", icon: "▤", cls: "pdf" };
-    if (["png", "jpg", "jpeg", "webp"].includes(ext)) return { label: "Image", icon: "▧", cls: "image" };
-    if (["xls", "xlsx", "csv"].includes(ext)) return { label: "Spreadsheet", icon: "▦", cls: "" };
-    if (["doc", "docx"].includes(ext)) return { label: "Document", icon: "▤", cls: "" };
-    return { label: ext.toUpperCase() || "File", icon: "▱", cls: "" };
+    if (ext === "pdf") return {label:"PDF",icon:"▤",cls:"pdf"};
+    if (["png","jpg","jpeg","webp"].includes(ext)) return {label:"Image",icon:"▧",cls:"image"};
+    return {label:ext.toUpperCase() || "File",icon:"▱",cls:""};
   }
   function updateStats() {
     $("total-stat").textContent = documents.length;
-    $("invoice-stat").textContent = documents.filter(d => d.category === "invoices").length;
-    $("receipt-stat").textContent = documents.filter(d => d.category === "receipts").length;
-    $("other-stat").textContent = documents.filter(d => d.category === "other").length;
-    $("storage-count").textContent = documents.length + (documents.length === 1 ? " document added" : " documents added");
+    $("invoice-stat").textContent = documents.filter(d=>d.category==="invoices").length;
+    $("receipt-stat").textContent = documents.filter(d=>d.category==="receipts").length;
+    $("other-stat").textContent = documents.filter(d=>d.category==="other").length;
+    $("storage-count").textContent = documents.length + (documents.length===1?" document added":" documents added");
   }
   function render() {
     updateStats();
-    const query = $("search-input").value.trim().toLowerCase();
-    const category = $("category-filter").value;
-    const sort = $("sort-filter").value;
-    let filtered = documents.filter(doc => {
-      const matchesQuery = doc.name.toLowerCase().includes(query);
-      const matchesCategory = category === "all" || doc.category === category;
-      const matchesView = activeView === "all" || doc.category === activeView;
-      return matchesQuery && matchesCategory && matchesView;
-    });
-    filtered.sort((a,b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "oldest" ? new Date(a.addedAt)-new Date(b.addedAt) : new Date(b.addedAt)-new Date(a.addedAt));
-
-    const list = $("document-list");
-    list.innerHTML = "";
-    if (!filtered.length) {
-      const empty = document.createElement("div");
-      empty.className = "empty-state";
-      empty.innerHTML = '<div class="empty-art"><span>⌕</span><i>✦</i></div><h3>' + (documents.length ? "No matching documents" : "Your workspace is ready") + '</h3><p>' + (documents.length ? "Try another search term or category filter." : "Upload an invoice, receipt or document to start building your library.") + '</p>' + (documents.length ? '<button class="text-button" id="reset-empty">Reset search and filters</button>' : '<button class="primary-button small" id="empty-upload">＋ Add your first document</button><small>PDF, images and common document formats</small>');
+    const query=$("search-input").value.trim().toLowerCase(), category=$("category-filter").value, sort=$("sort-filter").value;
+    let filtered=documents.filter(d=>d.name.toLowerCase().includes(query)&&(category==="all"||d.category===category)&&(activeView==="all"||d.category===activeView));
+    filtered.sort((a,b)=>sort==="name"?a.name.localeCompare(b.name):sort==="oldest"?new Date(a.addedAt)-new Date(b.addedAt):new Date(b.addedAt)-new Date(a.addedAt));
+    const list=$("document-list"); list.innerHTML="";
+    if(!filtered.length){
+      const empty=document.createElement("div"); empty.className="empty-state";
+      empty.innerHTML='<div class="empty-art"><span>⌕</span><i>✦</i></div><h3>'+ (documents.length?"No matching documents":"Your workspace is ready") +'</h3><p>'+ (documents.length?"Try another search term or category filter.":"Upload a PDF or image to extract and organize its text.") +'</p>'+ (documents.length?'<button class="text-button" id="reset-empty">Reset search and filters</button>':'<button class="primary-button small" id="empty-upload">＋ Add your first document</button><small>PDF, PNG, JPG and WEBP</small>');
       list.appendChild(empty);
-      const reset = $("reset-empty");
-      if (reset) reset.addEventListener("click", resetFilters);
-      const upload = $("empty-upload");
-      if (upload) upload.addEventListener("click", openPicker);
+      if($("reset-empty")) $("reset-empty").addEventListener("click",resetFilters);
+      if($("empty-upload")) $("empty-upload").addEventListener("click",openPicker);
       return;
     }
-
-    filtered.forEach(doc => {
-      const kind = fileKind(doc.name);
-      const row = document.createElement("div");
-      row.className = "document-row";
-      const name = document.createElement("div");
-      name.className = "file-name";
-      const icon = document.createElement("span");
-      icon.className = "file-icon " + kind.cls;
-      icon.textContent = kind.icon;
-      const details = document.createElement("span");
-      const title = document.createElement("b");
-      title.textContent = doc.name;
-      const sub = document.createElement("small");
-      sub.textContent = kind.label;
-      details.append(title, sub);
-      name.append(icon, details);
-
-      const cat = document.createElement("span");
-      cat.className = "category-cell";
-      const pill = document.createElement("span");
-      pill.className = "category-pill " + doc.category;
-      pill.textContent = categoryLabel(doc.category);
-      cat.appendChild(pill);
-
-      const size = document.createElement("span");
-      size.className = "size-cell row-muted";
-      size.textContent = formatSize(doc.size);
-      const date = document.createElement("span");
-      date.className = "date-cell row-muted";
-      date.textContent = formatDate(doc.addedAt);
-      const remove = document.createElement("button");
-      remove.className = "row-menu";
-      remove.type = "button";
-      remove.setAttribute("aria-label", "Remove " + doc.name);
-      remove.title = "Remove from this browser workspace";
-      remove.textContent = "×";
-      remove.addEventListener("click", () => {
-        if (!confirm('Remove "' + doc.name + '" from this browser workspace?')) return;
-        documents = documents.filter(item => item.id !== doc.id);
-        saveDocuments();
-        render();
-        showToast("Document entry removed.");
-      });
-      row.append(name, cat, size, date, remove);
-      list.appendChild(row);
+    filtered.forEach(doc=>{
+      const kind=fileKind(doc.name),row=document.createElement("div"); row.className="document-row";
+      const name=document.createElement("div"); name.className="file-name";
+      const icon=document.createElement("span"); icon.className="file-icon "+kind.cls; icon.textContent=kind.icon;
+      const details=document.createElement("span"),title=document.createElement("b"),sub=document.createElement("small");
+      title.textContent=doc.name; sub.textContent=kind.label+(doc.extractedText?" · Text extracted":" · Added"); details.append(title,sub); name.append(icon,details);
+      const cat=document.createElement("span"); cat.className="category-cell";
+      const pill=document.createElement("span"); pill.className="category-pill "+doc.category; pill.textContent=categoryLabel(doc.category); cat.appendChild(pill);
+      const size=document.createElement("span"); size.className="size-cell row-muted"; size.textContent=formatSize(doc.size);
+      const date=document.createElement("span"); date.className="date-cell row-muted"; date.textContent=formatDate(doc.addedAt);
+      const view=document.createElement("button"); view.className="row-menu"; view.type="button"; view.textContent="↗"; view.title="View extracted text"; view.setAttribute("aria-label","View "+doc.name);
+      view.addEventListener("click",()=>showSavedText(doc));
+      row.append(name,cat,size,date,view); list.appendChild(row);
     });
   }
-  function openPicker() { $("file-input").click(); }
-  function resetFilters() {
-    $("search-input").value = "";
-    $("category-filter").value = "all";
-    $("sort-filter").value = "newest";
-    activeView = "all";
-    document.querySelectorAll(".nav-item").forEach(item => item.classList.toggle("active", item.dataset.view === "all" && item.textContent.includes("Overview")));
-    $("page-label").textContent = "Overview";
-    render();
+  function setExtractionState(title,status,text,progress=null,meta="PDF text extraction · Image OCR") {
+    $("extract-title").textContent=title; $("extract-status").textContent=status; $("extracted-text").textContent=text;
+    $("extract-meta").textContent=meta; $("extract-progress-wrap").hidden=progress===null;
+    if(progress!==null) $("extract-progress").style.width=Math.max(0,Math.min(100,progress))+"%";
+    $("copy-extracted").disabled=!text || text.startsWith("Your extracted") || text.startsWith("No selectable");
+    latestExtractedText=$("copy-extracted").disabled?"":text;
   }
-
-  $("upload-trigger").addEventListener("click", openPicker);
-  $("empty-upload").addEventListener("click", openPicker);
-  $("file-input").addEventListener("change", event => {
-    const files = Array.from(event.target.files || []);
-    if (!files.length) return;
-    const known = new Set(documents.map(d => d.name + "|" + d.size));
-    let added = 0;
-    files.forEach(file => {
-      const key = file.name + "|" + file.size;
-      if (known.has(key)) return;
-      known.add(key);
-      documents.push({
-        id: (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(16).slice(2)),
-        name: file.name,
-        size: file.size,
-        type: file.type || "application/octet-stream",
-        category: categoryFor(file.name),
-        addedAt: new Date().toISOString()
-      });
-      added++;
+  function showSavedText(doc) {
+    $("extract-panel").scrollIntoView({behavior:"smooth",block:"center"});
+    setExtractionState(doc.name,doc.extractedText?"Previously extracted text":"No extracted text saved for this document.",doc.extractedText||"No selectable text is available. Upload this file again to run extraction.",null,doc.extractedText?"Saved in this browser":"No text available");
+  }
+  async function extractPdf(file) {
+    if(!window.pdfjsLib) throw new Error("PDF reader library did not load. Check your internet connection and refresh.");
+    const data=new Uint8Array(await file.arrayBuffer());
+    const pdf=await pdfjsLib.getDocument({data}).promise;
+    const pageLimit=Math.min(pdf.numPages,30),chunks=[];
+    for(let pageNo=1;pageNo<=pageLimit;pageNo++){
+      $("extract-status").textContent="Reading PDF page "+pageNo+" of "+pageLimit+"…";
+      $("extract-progress").style.width=Math.round(pageNo/pageLimit*100)+"%";
+      const page=await pdf.getPage(pageNo),content=await page.getTextContent();
+      const line=content.items.map(item=>item.str).filter(Boolean).join(" ");
+      if(line.trim()) chunks.push("PAGE "+pageNo+"\n"+line);
+    }
+    let text=chunks.join("\n\n").trim();
+    if(pdf.numPages>pageLimit) text+="\n\n[Only the first "+pageLimit+" pages were processed in this version.]";
+    return {text,pages:pdf.numPages,scanned:!text};
+  }
+  async function extractImage(file) {
+    if(!window.Tesseract) throw new Error("OCR library did not load. Check your internet connection and refresh.");
+    const result=await Tesseract.recognize(file,"eng",{
+      logger:message=>{
+        if(message.status==="recognizing text"){
+          const pct=Math.round((message.progress||0)*100);
+          $("extract-status").textContent="OCR is reading the image… "+pct+"%";
+          $("extract-progress").style.width=pct+"%";
+        } else if(message.status) $("extract-status").textContent="Preparing OCR: "+message.status+"…";
+      }
     });
-    saveDocuments();
-    render();
-    showToast(added ? added + (added === 1 ? " document added to this browser." : " documents added to this browser.") : "These files are already listed.");
-    event.target.value = "";
+    return {text:(result.data.text||"").trim(),pages:1};
+  }
+  async function processFile(file) {
+    const isPdf=file.type==="application/pdf"||file.name.toLowerCase().endsWith(".pdf");
+    const isImage=/^image\/(png|jpeg|webp)$/.test(file.type)||/\.(png|jpe?g|webp)$/i.test(file.name);
+    if(!isPdf&&!isImage){showToast("This version supports PDF, PNG, JPG and WEBP files.");return;}
+    const key=file.name+"|"+file.size;
+    const existing=documents.find(d=>d.name+"|"+d.size===key);
+    $("extract-panel").scrollIntoView({behavior:"smooth",block:"center"});
+    setExtractionState(file.name,"Preparing your document…","Extraction is starting.",0,isPdf?"PDF · Text layer":"Image · English OCR");
+    try {
+      const result=isPdf?await extractPdf(file):await extractImage(file);
+      let text=result.text;
+      if(!text){
+        const message=isPdf?"No selectable text found. This may be a scanned PDF; scanned-PDF OCR is not included yet.":"No readable text found in this image. Try a clearer, well-lit image.";
+        setExtractionState(file.name,"Extraction finished, but no text was detected.",message,null,"No text detected");
+        text="";
+      } else {
+        const savedText=text.slice(0,5000);
+        if(existing){existing.extractedText=savedText;existing.extractedAt=new Date().toISOString();}
+        else documents.unshift({id:(crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random().toString(16).slice(2)),name:file.name,size:file.size,type:file.type||"application/octet-stream",category:categoryFor(file.name),addedAt:new Date().toISOString(),extractedText:savedText});
+        saveDocuments(); render();
+        const note=text.length>5000?"\n\n[Preview limited to first 5,000 characters in browser storage.]":"";
+        setExtractionState(file.name,"Text extraction complete.",text.slice(0,5000)+note,100,isPdf?"PDF · "+result.pages+" page(s) checked":"Image · English OCR");
+        showToast("Text extracted successfully.");
+      }
+    } catch(error) {
+      console.error("DOCUPILOT extraction error:",error);
+      setExtractionState(file.name,"Could not extract text.",error.message||"Unexpected extraction error.",null,"Extraction failed");
+      showToast("Extraction failed. Check the file and internet connection.");
+    }
+  }
+  function openPicker(){ $("file-input").click(); }
+  function resetFilters(){
+    $("search-input").value=""; $("category-filter").value="all"; $("sort-filter").value="newest"; activeView="all";
+    document.querySelectorAll(".nav-item").forEach(item=>item.classList.toggle("active",item.textContent.includes("Overview")));
+    $("page-label").textContent="Overview"; render();
+  }
+  $("upload-trigger").addEventListener("click",openPicker);
+  $("empty-upload").addEventListener("click",openPicker);
+  $("file-input").addEventListener("change",async event=>{
+    const files=Array.from(event.target.files||[]);
+    if(!files.length)return;
+    for(const file of files) await processFile(file);
+    event.target.value="";
   });
-  $("search-input").addEventListener("input", render);
-  $("category-filter").addEventListener("change", render);
-  $("sort-filter").addEventListener("change", render);
-  $("clear-search").addEventListener("click", resetFilters);
-  document.querySelectorAll(".nav-item").forEach(item => {
-    item.addEventListener("click", () => {
-      activeView = item.dataset.view;
-      $("page-label").textContent = item.textContent.trim();
-      document.querySelectorAll(".nav-item").forEach(nav => nav.classList.toggle("active", nav === item));
-      $("category-filter").value = "all";
-      render();
-      $("sidebar").classList.remove("open");
-    });
+  $("copy-extracted").addEventListener("click",async()=>{
+    if(!latestExtractedText)return;
+    try{await navigator.clipboard.writeText(latestExtractedText);showToast("Extracted text copied.");}
+    catch{showToast("Clipboard access unavailable in this browser.");}
   });
-  $("mobile-menu").addEventListener("click", () => $("sidebar").classList.toggle("open"));
+  $("search-input").addEventListener("input",render);
+  $("category-filter").addEventListener("change",render);
+  $("sort-filter").addEventListener("change",render);
+  $("clear-search").addEventListener("click",resetFilters);
+  document.querySelectorAll(".nav-item").forEach(item=>item.addEventListener("click",()=>{
+    activeView=item.dataset.view; $("page-label").textContent=item.textContent.trim();
+    document.querySelectorAll(".nav-item").forEach(nav=>nav.classList.toggle("active",nav===item));
+    $("category-filter").value="all"; render(); $("sidebar").classList.remove("open");
+  }));
+  $("mobile-menu").addEventListener("click",()=>$("sidebar").classList.toggle("open"));
   render();
 })();
