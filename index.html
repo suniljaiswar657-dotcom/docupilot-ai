@@ -61,6 +61,12 @@
         <section class="content-panel">
           <div class="panel-heading"><div><h2>Your documents</h2><p>Everything you have added, all in one place.</p></div><button class="text-button" id="clear-search">Clear filters ↗</button></div>
           <div class="toolbar"><label class="search-box"><span>⌕</span><input id="search-input" type="search" placeholder="Search documents..." autocomplete="off" /></label><div class="filter-wrap"><span>Category</span><select id="category-filter" aria-label="Filter by category"><option value="all">All categories</option><option value="invoices">Invoices</option><option value="receipts">Receipts</option><option value="other">Other files</option></select></div><select id="sort-filter" class="sort-select" aria-label="Sort documents"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option></select></div>
+          <section class="extract-panel" id="extract-panel" aria-live="polite">
+            <div class="extract-top"><div><span class="extract-kicker">DOCUMENT READER</span><h3 id="extract-title">Text extraction</h3><p id="extract-status">Upload a PDF or image to read its text here.</p></div><span class="extract-symbol">✧</span></div>
+            <div class="progress-track" id="extract-progress-wrap" hidden><i id="extract-progress"></i></div>
+            <pre id="extracted-text" class="extracted-text">Your extracted document text will appear here.</pre>
+            <div class="extract-actions"><span id="extract-meta">PDF text extraction · Image OCR</span><button id="copy-extracted" class="copy-button" type="button" disabled>Copy text</button></div>
+          </section>
           <div class="table-head"><span>NAME</span><span>CATEGORY</span><span>FILE SIZE</span><span>ADDED</span><span></span></div>
           <div id="document-list" class="document-list">
             <div class="empty-state" id="empty-state"><div class="empty-art"><span>▤</span><i>✦</i></div><h3>Your workspace is ready</h3><p>Upload an invoice, receipt or document to start building your library.</p><button class="primary-button small" id="empty-upload">＋ Add your first document</button><small>PDF, images and common document formats</small></div>
@@ -71,8 +77,10 @@
     </main>
   </div>
 
-  <input id="file-input" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt" hidden />
+  <input id="file-input" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp" hidden />
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
