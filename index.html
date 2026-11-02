@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f5f7fb" />
+  <meta name="description" content="DOCUPILOT AI — organize, search and manage your documents in one workspace." />
+  <title>DOCUPILOT AI — Document Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="DOCUPILOT AI home">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.75h7l4 4v12.5H7a2 2 0 0 1-2-2V5.75a2 2 0 0 1 2-2Z"/><path d="M14 3.75v4h4M9 13h6M9 16.5h6"/></svg></span>
+        <span>docupilot<span class="brand-ai">.ai</span><small>DOCUMENT INTELLIGENCE</small></span>
+      </a>
+      <div class="workspace-label">WORKSPACE</div>
+      <nav class="nav-list" aria-label="Main navigation">
+        <button class="nav-item active" data-view="all"><span>▦</span> Overview</button>
+        <button class="nav-item" data-view="all"><span>▤</span> All documents</button>
+        <button class="nav-item" data-view="invoices"><span>▧</span> Invoices</button>
+        <button class="nav-item" data-view="receipts"><span>▨</span> Receipts</button>
+        <button class="nav-item" data-view="other"><span>▱</span> Other files</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="storage-card">
+          <div class="storage-icon">✧</div>
+          <strong>Your workspace</strong>
+          <p>Files stay in this browser for this prototype.</p>
+          <div class="storage-track"><i></i></div>
+          <small id="storage-count">0 documents added</small>
+        </div>
+        <button class="profile-button"><span class="avatar">S</span><span><b>My workspace</b><small>Free plan · Local demo</small></span><span class="more">•••</span></button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobile-menu" aria-label="Toggle menu">☰</button>
+        <div class="breadcrumb">Workspace <span>/</span> <b id="page-label">Overview</b></div>
+        <div class="top-actions"><span class="secure-label"><i></i> Private workspace</span><button class="help-button" aria-label="Help">?</button><span class="top-avatar">S</span></div>
+      </header>
+
+      <section class="page">
+        <div class="welcome-row">
+          <div><div class="eyebrow"><span class="pulse"></span> YOUR DOCUMENT COMMAND CENTER</div><h1>Good things start <span>organized.</span></h1><p class="subheading">Bring your documents together. Find what matters, faster.</p></div>
+          <button class="primary-button" id="upload-trigger"><span>＋</span> Upload documents</button>
+        </div>
+
+        <section class="stats-grid" aria-label="Document statistics">
+          <article class="stat-card"><div class="stat-top"><span>Total documents</span><span class="stat-icon blue">▤</span></div><strong id="total-stat">0</strong><small><span class="muted-dot"></span> In your workspace</small></article>
+          <article class="stat-card"><div class="stat-top"><span>Invoices</span><span class="stat-icon violet">▧</span></div><strong id="invoice-stat">0</strong><small>Invoice files</small></article>
+          <article class="stat-card"><div class="stat-top"><span>Receipts</span><span class="stat-icon orange">▨</span></div><strong id="receipt-stat">0</strong><small>Receipt files</small></article>
+          <article class="stat-card"><div class="stat-top"><span>Other files</span><span class="stat-icon green">▱</span></div><strong id="other-stat">0</strong><small>Other documents</small></article>
+        </section>
+
+        <section class="content-panel">
+          <div class="panel-heading"><div><h2>Your documents</h2><p>Everything you have added, all in one place.</p></div><button class="text-button" id="clear-search">Clear filters ↗</button></div>
+          <div class="toolbar"><label class="search-box"><span>⌕</span><input id="search-input" type="search" placeholder="Search documents..." autocomplete="off" /></label><div class="filter-wrap"><span>Category</span><select id="category-filter" aria-label="Filter by category"><option value="all">All categories</option><option value="invoices">Invoices</option><option value="receipts">Receipts</option><option value="other">Other files</option></select></div><select id="sort-filter" class="sort-select" aria-label="Sort documents"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option></select></div>
+          <div class="table-head"><span>NAME</span><span>CATEGORY</span><span>FILE SIZE</span><span>ADDED</span><span></span></div>
+          <div id="document-list" class="document-list">
+            <div class="empty-state" id="empty-state"><div class="empty-art"><span>▤</span><i>✦</i></div><h3>Your workspace is ready</h3><p>Upload an invoice, receipt or document to start building your library.</p><button class="primary-button small" id="empty-upload">＋ Add your first document</button><small>PDF, images and common document formats</small></div>
+          </div>
+        </section>
+        <footer><span>© 2026 DOCUPILOT AI</span><span>Simple documents. Clear thinking.</span></footer>
+      </section>
+    </main>
+  </div>
+
+  <input id="file-input" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt" hidden />
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
