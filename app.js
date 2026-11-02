@@ -79,6 +79,74 @@
       row.append(name,cat,size,date,view); list.appendChild(row);
     });
   }
+
+  function parseInvoiceText(raw) {
+    const text=String(raw||"").replace(/\u00a0/g," ").replace(/[₹]/g," INR ");
+    const lines=text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    const findLine=(regex)=>lines.find(line=>regex.test(line))||"";
+    const afterLabel=(regex)=>{
+      const line=findLine(regex);
+      if(!line)return "";
+      const match=line.match(/(?:invoice\s*(?:no|number|#)|bill\s*(?:no|number|#)|dated|invoice\s*date|due\s*date|gstin|taxable\s*value|sub\s*total|subtotal|grand\s*total|total\s*(?:amount|due)|amount\s*payable|cgst|sgst|igst)[\s:#-]*([A-Z0-9][A-Z0-9\/-]{1,30})/i);
+      return match?match[1]:"";
+    };
+    const invoiceNo=afterLabel(/invoice\s*(?:no|number|#)|bill\s*(?:no|number|#)/i);
+    const gstin=(text.match(/\b[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]\b/i)||[])[0]||"";
+    const datePattern=/\b(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}|\d{4}[\/-]\d{1,2}[\/-]\d{1,2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})\b/i;
+    const pickDate=(regex)=>{const line=findLine(regex);const m=line.match(datePattern);return m?m[1]:"";};
+    const invoiceDate=pickDate(/invoice\s*date|\bdated\b|date\s*:/i);
+    const dueDate=pickDate(/due\s*date|payment\s*due|pay\s*by/i);
+    const moneyFrom=(regex)=>{
+      const line=findLine(regex);
+      if(!line)return "";
+      const matches=line.match(/(?:INR\s*)?\d[\d,]*(?:\.\d{1,2})?/gi);
+      if(!matches||!matches.length)return "";
+      const candidate=matches[matches.length-1].replace(/INR\s*/i,"").replace(/,/g,"");
+      const value=Number(candidate);
+      return Number.isFinite(value)?value.toFixed(2):"";
+    };
+    let gstAmount="";
+    const directGst=moneyFrom(/\btotal\s*gst\b|\bgst\s*amount\b|\btotal\s*tax\b/i);
+    if(directGst) gstAmount=directGst;
+    else {
+      const parts=["cgst","sgst","igst"].map(key=>moneyFrom(new RegExp("\\b"+key+"\\b","i"))).filter(Boolean).map(Number);
+      if(parts.length)gstAmount=parts.reduce((a,b)=>a+b,0).toFixed(2);
+    }
+    const subtotal=moneyFrom(/taxable\s*value|sub\s*total|subtotal|before\s*tax/i);
+    const total=moneyFrom(/grand\s*total|total\s*amount|amount\s*payable|net\s*payable|balance\s*due/i);
+    let vendor="";
+    for(const line of lines.slice(0,12)){
+      if(line.length<3||line.length>70)continue;
+      if(/^(page\s*\d+|tax invoice|invoice|receipt|bill of supply|original for recipient)/i.test(line))continue;
+      if(/invoice\s*(no|number|date)|gstin|phone|email|www\.|http/i.test(line))continue;
+      if(datePattern.test(line))continue;
+      vendor=line;break;
+    }
+    return {
+      vendor:vendor,invoiceNumber:invoiceNo,invoiceDate:invoiceDate,dueDate:dueDate,
+      gstin:gstin,subtotal:subtotal,gstAmount:gstAmount,total:total
+    };
+  }
+  function renderInsights(data) {
+    const grid=$("insights-grid");
+    const fields=[
+      ["Vendor / business",data.vendor],["Invoice number",data.invoiceNumber],
+      ["Invoice date",data.invoiceDate],["Due date",data.dueDate],
+      ["GSTIN",data.gstin],["Taxable value",data.subtotal? "₹"+data.subtotal:""],
+      ["GST amount",data.gstAmount? "₹"+data.gstAmount:""],["Total amount",data.total? "₹"+data.total:""]
+    ];
+    grid.innerHTML="";
+    let found=0;
+    fields.forEach(([label,value])=>{
+      const cell=document.createElement("div");cell.className="insight-cell";
+      const key=document.createElement("span");key.textContent=label;
+      const val=document.createElement("strong");val.textContent=value||"Not detected";
+      if(value)found++;
+      if(!value)val.classList.add("not-detected");
+      cell.append(key,val);grid.appendChild(cell);
+    });
+    $("insights-status").textContent=found+" of 8 fields detected. Please verify the values.";
+  }
   function setExtractionState(title,status,text,progress=null,meta="PDF text extraction · Image OCR") {
     $("extract-title").textContent=title; $("extract-status").textContent=status; $("extracted-text").textContent=text;
     $("extract-meta").textContent=meta; $("extract-progress-wrap").hidden=progress===null;
@@ -89,6 +157,7 @@
   function showSavedText(doc) {
     $("extract-panel").scrollIntoView({behavior:"smooth",block:"center"});
     setExtractionState(doc.name,doc.extractedText?"Previously extracted text":"No extracted text saved for this document.",doc.extractedText||"No selectable text is available. Upload this file again to run extraction.",null,doc.extractedText?"Saved in this browser":"No text available");
+    renderInsights(doc.parsedData||parseInvoiceText(doc.extractedText||""));
   }
   async function extractPdf(file) {
     if(!window.pdfjsLib) throw new Error("PDF reader library did not load. Check your internet connection and refresh.");
@@ -133,14 +202,17 @@
       if(!text){
         const message=isPdf?"No selectable text found. This may be a scanned PDF; scanned-PDF OCR is not included yet.":"No readable text found in this image. Try a clearer, well-lit image.";
         setExtractionState(file.name,"Extraction finished, but no text was detected.",message,null,"No text detected");
+        renderInsights({});
         text="";
       } else {
         const savedText=text.slice(0,5000);
-        if(existing){existing.extractedText=savedText;existing.extractedAt=new Date().toISOString();}
-        else documents.unshift({id:(crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random().toString(16).slice(2)),name:file.name,size:file.size,type:file.type||"application/octet-stream",category:categoryFor(file.name),addedAt:new Date().toISOString(),extractedText:savedText});
+        const parsedData=parseInvoiceText(text);
+        if(existing){existing.extractedText=savedText;existing.parsedData=parsedData;existing.extractedAt=new Date().toISOString();}
+        else documents.unshift({id:(crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random().toString(16).slice(2)),name:file.name,size:file.size,type:file.type||"application/octet-stream",category:categoryFor(file.name),addedAt:new Date().toISOString(),extractedText:savedText,parsedData:parsedData});
         saveDocuments(); render();
         const note=text.length>5000?"\n\n[Preview limited to first 5,000 characters in browser storage.]":"";
         setExtractionState(file.name,"Text extraction complete.",text.slice(0,5000)+note,100,isPdf?"PDF · "+result.pages+" page(s) checked":"Image · English OCR");
+        renderInsights(parsedData);
         showToast("Text extracted successfully.");
       }
     } catch(error) {
